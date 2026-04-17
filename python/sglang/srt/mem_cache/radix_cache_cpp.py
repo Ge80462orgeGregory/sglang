@@ -99,8 +99,9 @@ class RadixCacheCpp(BasePrefixCache):
         self.tree.reset()
 
     def match_prefix(self, params: MatchPrefixParams) -> MatchResult:
+        key = params.key
         device_indices_vec, host_indices_length, node_gpu, node_cpu = (
-            self.tree.match_prefix(params.token_ids)
+            self.tree.match_prefix(key.token_ids)
         )
         return MatchResult(
             device_indices=self._merge_tensor(device_indices_vec),

@@ -460,7 +460,7 @@ class RadixCache(BasePrefixCache):
                 to expose a precise boundary; this structural refinement improves
                 subsequent match efficiency and does not duplicate data.
         """
-        key = self._make_radix_key(params.token_ids, params.extra_key)
+        key = params.key
 
         def empty_match_result():
             return MatchResult(
@@ -474,6 +474,13 @@ class RadixCache(BasePrefixCache):
             )
 
         if self.disable or len(key) == 0:
+            return empty_match_result()
+
+        if self.page_size != 1:
+            page_aligned_len = len(key) // self.page_size * self.page_size
+            key = key[:page_aligned_len]
+
+        if len(key) == 0:
             return empty_match_result()
 
         value, last_node = self._match_prefix_helper(self.root_node, key)
@@ -577,9 +584,7 @@ class RadixCache(BasePrefixCache):
         )
 
         # The prefix indices could be updated, reuse it
-        match_result = self.match_prefix(
-            MatchPrefixParams(token_ids=token_ids, extra_key=req.extra_key)
-        )
+        match_result = self.match_prefix(MatchPrefixParams(key=radix_key))
         new_indices, new_last_node = (
             match_result.device_indices,
             match_result.last_device_node,
@@ -971,4 +976,8 @@ if __name__ == "__main__":
     )
     tree.pretty_print()
 
-    print(tree.match_prefix(MatchPrefixParams(token_ids=[1, 2, 3, 13, 14])))
+    print(
+        tree.match_prefix(
+            MatchPrefixParams(key=RadixKey(token_ids=[1, 2, 3, 13, 14], extra_key=None))
+        )
+    )

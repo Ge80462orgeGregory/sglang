@@ -238,7 +238,7 @@ class TestMamba(unittest.TestCase):
         tree.pretty_print()
 
         req5_token_ids = [1, 2, 3, 4, 5]
-        result = tree.match_prefix(MatchPrefixParams(token_ids=req5_token_ids))
+        result = tree.match_prefix(MatchPrefixParams(key=RadixKey(req5_token_ids)))
         kv_indices, last_node = result.device_indices, result.last_device_node
         print(
             f"req5: token_ids: {req5_token_ids}, matched kv_indices: {kv_indices}, last_node.key: {last_node.key}"
@@ -246,7 +246,7 @@ class TestMamba(unittest.TestCase):
         assert len(kv_indices) == 0
 
         req6_token_ids = [1, 2, 3, 4, 5, 60, 70]
-        result = tree.match_prefix(MatchPrefixParams(token_ids=req6_token_ids))
+        result = tree.match_prefix(MatchPrefixParams(key=RadixKey(req6_token_ids)))
         kv_indices, last_node = result.device_indices, result.last_device_node
         print(
             f"req6: token_ids: {req6_token_ids}, matched kv_indices: {kv_indices}, last_node.key: {last_node.key}"
@@ -255,7 +255,7 @@ class TestMamba(unittest.TestCase):
         assert len(last_node.key) == 2
 
         req7_token_ids = [1, 2, 3, 4, 5, 6, 7]
-        result = tree.match_prefix(MatchPrefixParams(token_ids=req7_token_ids))
+        result = tree.match_prefix(MatchPrefixParams(key=RadixKey(req7_token_ids)))
         kv_indices, last_node = result.device_indices, result.last_device_node
         print(
             f"req7: token_ids: {req7_token_ids}, matched kv_indices: {kv_indices}, last_node.key: {last_node.key}"
@@ -272,7 +272,7 @@ class TestMamba(unittest.TestCase):
         tree.pretty_print()
 
         req8_token_ids = [1, 2, 3, 4, 5, 60, 70]
-        result = tree.match_prefix(MatchPrefixParams(token_ids=req8_token_ids))
+        result = tree.match_prefix(MatchPrefixParams(key=RadixKey(req8_token_ids)))
         kv_indices, last_node = result.device_indices, result.last_device_node
         print(
             f"req8: token_ids: {req8_token_ids}, matched kv_indices: {kv_indices}, last_node.key: {last_node.key}"
@@ -283,7 +283,7 @@ class TestMamba(unittest.TestCase):
         req9_token_ids = [1, 2, 3, 4, 5, 6, 7]
         req9 = make_dummy_req()
         result = tree.match_prefix(
-            MatchPrefixParams(token_ids=req9_token_ids, req=req9, cow_mamba=True)
+            MatchPrefixParams(key=RadixKey(req9_token_ids), req=req9, cow_mamba=True)
         )
         kv_indices, last_node = result.device_indices, result.last_device_node
         assert req9.mamba_pool_idx is not None
