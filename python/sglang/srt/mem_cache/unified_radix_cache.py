@@ -25,7 +25,6 @@ from sglang.srt.mem_cache.radix_cache import (
     _key_match_page_size1,
     _key_match_paged,
     get_child_key,
-    page_align_keys,
 )
 from sglang.srt.mem_cache.unified_cache_components import (
     _NUM_COMPONENT_TYPES,
@@ -224,7 +223,6 @@ class UnifiedRadixCache(BasePrefixCache):
 
     def match_prefix(self, params: MatchPrefixParams) -> MatchResult:
         key = params.key
-        key, _ = key.maybe_to_bigram_view(self.is_eagle)
         if self.disable or len(key) == 0:
             return MatchResult(
                 device_indices=torch.empty(
@@ -235,9 +233,7 @@ class UnifiedRadixCache(BasePrefixCache):
                 last_device_node=self.root_node,
                 last_host_node=self.root_node,
             )
-        if self.page_size != 1:
-            page_aligned_len = len(key) // self.page_size * self.page_size
-            key = key[:page_aligned_len]
+        key = key.page_aligned(self.page_size)
 
         value, last_node, best_value_len = self._match_prefix_helper(key)
         return self._match_post_processor(params, value, last_node, best_value_len)
@@ -251,7 +247,6 @@ class UnifiedRadixCache(BasePrefixCache):
         if value is None:
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
-        key, value = key.maybe_to_bigram_view(self.is_eagle, value)
         result = self._insert_helper(self.root_node, key, value, params)
         return result
 
@@ -331,9 +326,7 @@ class UnifiedRadixCache(BasePrefixCache):
                 token_ids = token_ids[:effective_cache_len]
                 kv_indices = kv_indices[:effective_cache_len]
 
-            # Page align on raw tokens; bigram semantics via is_bigram flag.
-            keys = page_align_keys(token_ids, self.page_size, is_bigram=self.is_eagle)
-            radix_key = RadixKey(keys, req.extra_key, is_bigram=self.is_eagle)
+            radix_key = self._make_radix_key(token_ids, req.extra_key)
             page_aligned_len = len(radix_key)
             values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 
@@ -394,11 +387,7 @@ class UnifiedRadixCache(BasePrefixCache):
 
         kv_indices = kv_indices_orig[:effective_cache_len]
 
-        # Page align on raw tokens; bigram semantics via is_bigram flag.
-        keys = page_align_keys(
-            token_ids[:effective_cache_len], self.page_size, is_bigram=self.is_eagle
-        )
-        radix_key = RadixKey(keys, req.extra_key, is_bigram=self.is_eagle)
+        radix_key = self._make_radix_key(token_ids[:effective_cache_len], req.extra_key)
         page_aligned_len = len(radix_key)
         values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 

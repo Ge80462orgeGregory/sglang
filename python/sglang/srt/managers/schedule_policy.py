@@ -43,7 +43,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     InsertParams,
     MatchPrefixParams,
 )
-from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey, TreeNode
+from sglang.srt.mem_cache.radix_cache import RadixCache, TreeNode
 from sglang.srt.mem_cache.swa_memory_pool import SWATokenToKVPoolAllocator
 from sglang.srt.server_args import ServerArgs
 
@@ -198,7 +198,7 @@ class SchedulePolicy:
             # NOTE: the prefix_indices must always be aligned with last_node
             match_result = self.tree_cache.match_prefix(
                 MatchPrefixParams(
-                    key=RadixKey(token_ids=prefix_ids, extra_key=extra_key)
+                    key=self.tree_cache._make_radix_key(prefix_ids, extra_key)
                 )
             )
             (
@@ -223,7 +223,9 @@ class SchedulePolicy:
             if len(r.prefix_indices) <= IN_BATCH_PREFIX_CACHING_CHECK_THRESHOLD:
                 match_result = self.waiting_queue_radix_tree.match_prefix(
                     MatchPrefixParams(
-                        key=RadixKey(token_ids=prefix_ids, extra_key=extra_key)
+                        key=self.waiting_queue_radix_tree._make_radix_key(
+                            prefix_ids, extra_key
+                        )
                     )
                 )
                 in_batch_matching_prefixes = match_result.device_indices
@@ -236,7 +238,9 @@ class SchedulePolicy:
                     # Insert with a dummy key
                     self.waiting_queue_radix_tree.insert(
                         InsertParams(
-                            key=RadixKey(token_ids=prefix_ids, extra_key=extra_key),
+                            key=self.waiting_queue_radix_tree._make_radix_key(
+                                prefix_ids, extra_key
+                            ),
                             value=torch.empty(len(prefix_ids), dtype=torch.bool),
                         )
                     )

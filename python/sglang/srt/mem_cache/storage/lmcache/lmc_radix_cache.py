@@ -12,7 +12,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     MatchPrefixParams,
     MatchResult,
 )
-from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey, TreeNode
+from sglang.srt.mem_cache.radix_cache import RadixCache, TreeNode
 
 try:
     from lmcache.integration.sglang.sglang_adapter import (
@@ -236,7 +236,7 @@ class LMCRadixCache(RadixCache):
         ]
 
         match_result = self.match_prefix(
-            MatchPrefixParams(key=RadixKey(token_ids, req.extra_key))
+            MatchPrefixParams(key=self._make_radix_key(token_ids, req.extra_key))
         )
         new_last_node = match_result.last_device_node
         assert new_last_node is not None
