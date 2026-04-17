@@ -196,10 +196,9 @@ class SchedulePolicy:
             prefix_ids = r.origin_input_ids + r.output_ids
             extra_key = r.extra_key
             # NOTE: the prefix_indices must always be aligned with last_node
+            radix_key = self.tree_cache.make_radix_key(prefix_ids, extra_key)
             match_result = self.tree_cache.match_prefix(
-                MatchPrefixParams(
-                    key=self.tree_cache.make_radix_key(prefix_ids, extra_key)
-                )
+                MatchPrefixParams(key=radix_key)
             )
             (
                 r.prefix_indices,
@@ -221,12 +220,11 @@ class SchedulePolicy:
             # threshold means we cannot use in-batch prefix caching for short prefixes.
             # It is kind of common when the engine is long running (e.g., imagine the prefix "the").
             if len(r.prefix_indices) <= IN_BATCH_PREFIX_CACHING_CHECK_THRESHOLD:
+                waiting_key = self.waiting_queue_radix_tree.make_radix_key(
+                    prefix_ids, extra_key
+                )
                 match_result = self.waiting_queue_radix_tree.match_prefix(
-                    MatchPrefixParams(
-                        key=self.waiting_queue_radix_tree.make_radix_key(
-                            prefix_ids, extra_key
-                        )
-                    )
+                    MatchPrefixParams(key=waiting_key)
                 )
                 in_batch_matching_prefixes = match_result.device_indices
                 if (
@@ -238,9 +236,7 @@ class SchedulePolicy:
                     # Insert with a dummy key
                     self.waiting_queue_radix_tree.insert(
                         InsertParams(
-                            key=self.waiting_queue_radix_tree.make_radix_key(
-                                prefix_ids, extra_key
-                            ),
+                            key=waiting_key,
                             value=torch.empty(len(prefix_ids), dtype=torch.bool),
                         )
                     )

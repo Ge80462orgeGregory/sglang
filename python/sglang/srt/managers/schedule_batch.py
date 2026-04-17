@@ -989,12 +989,9 @@ class Req(ReqDllmMixin):
         if tree_cache is not None:
             if cow_mamba is None:
                 cow_mamba = tree_cache.supports_mamba()
+            radix_key = tree_cache.make_radix_key(token_ids, self.extra_key)
             match_result = tree_cache.match_prefix(
-                MatchPrefixParams(
-                    key=tree_cache.make_radix_key(token_ids, self.extra_key),
-                    req=self,
-                    cow_mamba=cow_mamba,
-                )
+                MatchPrefixParams(key=radix_key, req=self, cow_mamba=cow_mamba)
             )
             (
                 self.prefix_indices,
