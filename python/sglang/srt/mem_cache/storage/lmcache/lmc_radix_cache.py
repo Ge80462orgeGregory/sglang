@@ -236,7 +236,7 @@ class LMCRadixCache(RadixCache):
         ]
 
         match_result = self.match_prefix(
-            MatchPrefixParams(key=self._make_radix_key(token_ids, req.extra_key))
+            MatchPrefixParams(key=self.make_radix_key(token_ids, req.extra_key))
         )
         new_last_node = match_result.last_device_node
         assert new_last_node is not None

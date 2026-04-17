@@ -529,7 +529,7 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        radix_key = self.make_radix_key(token_ids, req.extra_key)
         key_len = len(radix_key)
         values = kv_indices[:key_len].to(dtype=torch.int64, copy=True)
 
@@ -565,7 +565,7 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        radix_key = self.make_radix_key(token_ids, req.extra_key)
         values = kv_indices[: len(radix_key)].to(dtype=torch.int64, copy=True)
 
         # Radix Cache takes one ref in memory pool

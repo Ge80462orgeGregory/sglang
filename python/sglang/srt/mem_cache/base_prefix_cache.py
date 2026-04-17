@@ -154,7 +154,7 @@ class BasePrefixCache(ABC, PrefixCacheTrait):
         None  # metrics collector for the cache
     )
 
-    def _make_radix_key(self, token_ids, extra_key: Optional[str] = None) -> "RadixKey":
+    def make_radix_key(self, token_ids, extra_key: Optional[str] = None) -> "RadixKey":
         """Build a page-aligned RadixKey configured for this cache's mode."""
         from sglang.srt.mem_cache.radix_cache import RadixKey
 

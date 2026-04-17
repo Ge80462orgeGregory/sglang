@@ -452,7 +452,7 @@ class SWARadixCache(BasePrefixCache):
             req.req_pool_idx, :kv_committed_len
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        radix_key = self.make_radix_key(token_ids, req.extra_key)
         page_aligned_len = len(radix_key)
         values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
         old_prefix_len = req.cache_protected_len
@@ -497,7 +497,7 @@ class SWARadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        radix_key = self.make_radix_key(token_ids, req.extra_key)
         values = kv_indices[: len(radix_key)].to(dtype=torch.int64, copy=True)
         old_prefix_len = req.cache_protected_len
 

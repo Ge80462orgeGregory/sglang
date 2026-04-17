@@ -198,7 +198,7 @@ class SchedulePolicy:
             # NOTE: the prefix_indices must always be aligned with last_node
             match_result = self.tree_cache.match_prefix(
                 MatchPrefixParams(
-                    key=self.tree_cache._make_radix_key(prefix_ids, extra_key)
+                    key=self.tree_cache.make_radix_key(prefix_ids, extra_key)
                 )
             )
             (
@@ -223,7 +223,7 @@ class SchedulePolicy:
             if len(r.prefix_indices) <= IN_BATCH_PREFIX_CACHING_CHECK_THRESHOLD:
                 match_result = self.waiting_queue_radix_tree.match_prefix(
                     MatchPrefixParams(
-                        key=self.waiting_queue_radix_tree._make_radix_key(
+                        key=self.waiting_queue_radix_tree.make_radix_key(
                             prefix_ids, extra_key
                         )
                     )
@@ -238,7 +238,7 @@ class SchedulePolicy:
                     # Insert with a dummy key
                     self.waiting_queue_radix_tree.insert(
                         InsertParams(
-                            key=self.waiting_queue_radix_tree._make_radix_key(
+                            key=self.waiting_queue_radix_tree.make_radix_key(
                                 prefix_ids, extra_key
                             ),
                             value=torch.empty(len(prefix_ids), dtype=torch.bool),

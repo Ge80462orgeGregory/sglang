@@ -326,7 +326,7 @@ class UnifiedRadixCache(BasePrefixCache):
                 token_ids = token_ids[:effective_cache_len]
                 kv_indices = kv_indices[:effective_cache_len]
 
-            radix_key = self._make_radix_key(token_ids, req.extra_key)
+            radix_key = self.make_radix_key(token_ids, req.extra_key)
             page_aligned_len = len(radix_key)
             values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 
@@ -387,7 +387,7 @@ class UnifiedRadixCache(BasePrefixCache):
 
         kv_indices = kv_indices_orig[:effective_cache_len]
 
-        radix_key = self._make_radix_key(token_ids[:effective_cache_len], req.extra_key)
+        radix_key = self.make_radix_key(token_ids[:effective_cache_len], req.extra_key)
         page_aligned_len = len(radix_key)
         values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 
