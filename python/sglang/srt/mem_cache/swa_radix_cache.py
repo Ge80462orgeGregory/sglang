@@ -424,17 +424,16 @@ class SWARadixCache(BasePrefixCache):
         if self.disable:
             return InsertResult(prefix_len=0)
 
-        key = self._make_radix_key(params.token_ids, params.extra_key)
+        key = params.key
         value = params.value
+        prev_prefix_len = params.prev_prefix_len
+        swa_evicted_seqlen = params.swa_evicted_seqlen
+
         if value is None:
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
         prefix_len = self._insert_helper(
-            self.root_node,
-            key,
-            value,
-            params.prev_prefix_len,
-            params.swa_evicted_seqlen,
+            self.root_node, key, value, prev_prefix_len, swa_evicted_seqlen
         )
         return InsertResult(prefix_len=prefix_len)
 
@@ -453,7 +452,8 @@ class SWARadixCache(BasePrefixCache):
             req.req_pool_idx, :kv_committed_len
         ]
 
-        page_aligned_len = self._page_aligned_logical_len(token_ids)
+        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        page_aligned_len = len(radix_key)
         values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
         old_prefix_len = req.cache_protected_len
 
@@ -462,8 +462,7 @@ class SWARadixCache(BasePrefixCache):
         if is_insert:
             self.insert(
                 InsertParams(
-                    token_ids=token_ids,
-                    extra_key=req.extra_key,
+                    key=radix_key,
                     value=values,
                     prev_prefix_len=old_prefix_len,
                     swa_evicted_seqlen=req.swa_evicted_seqlen,
@@ -498,16 +497,15 @@ class SWARadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        key_len = self._page_aligned_logical_len(token_ids)
-        values = kv_indices[:key_len].to(dtype=torch.int64, copy=True)
+        radix_key = self._make_radix_key(token_ids, req.extra_key)
+        values = kv_indices[: len(radix_key)].to(dtype=torch.int64, copy=True)
         old_prefix_len = req.cache_protected_len
 
         # Radix Cache takes one ref in memory pool
         # Note: the insert function already frees the overlapped kv_indices
         result = self.insert(
             InsertParams(
-                token_ids=token_ids,
-                extra_key=req.extra_key,
+                key=radix_key,
                 value=values,
                 prev_prefix_len=old_prefix_len,
             )

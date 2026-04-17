@@ -232,8 +232,9 @@ class SchedulePolicy:
                     # Insert with a dummy key
                     self.waiting_queue_radix_tree.insert(
                         InsertParams(
-                            token_ids=prefix_ids,
-                            extra_key=extra_key,
+                            key=self.waiting_queue_radix_tree._make_radix_key(
+                                prefix_ids, extra_key
+                            ),
                             value=torch.empty(len(prefix_ids), dtype=torch.bool),
                         )
                     )

@@ -1383,10 +1383,13 @@ class HiRadixCache(RadixCache):
         return new_node
 
     def insert(self, params: InsertParams) -> InsertResult:
-        key = self._make_radix_key(params.token_ids, params.extra_key)
+        key = params.key
         value = params.value
         chunked = params.chunked
-        priority = params.priority or 0
+        priority = params.priority
+
+        if priority is None:
+            priority = 0
 
         if len(key) == 0:
             return InsertResult(prefix_len=0)

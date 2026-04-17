@@ -10,7 +10,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
 )
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.memory_pool import MHATokenToKVPool, ReqToTokenPool
-from sglang.srt.mem_cache.radix_cache import RadixCache
+from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey
 from sglang.test.ci.ci_register import register_cuda_ci
 
 register_cuda_ci(est_time=7, suite="stage-b-test-1-gpu-small")
@@ -62,32 +62,42 @@ class TestSLRUAccuracy(unittest.TestCase):
         """Test that SLRU eviction mechanism works correctly"""
 
         # Insert one key-value three times (high frequency access)
-        frequent_tokens = [1, 2]  # High hit rate, should be retained
+        frequent_key = RadixKey(
+            token_ids=[1, 2], extra_key=None
+        )  # High hit rate, should be retained
         frequent_val = torch.tensor([10, 20], dtype=torch.int64)
 
         # Insert the frequent key multiple times to increase its hit count
         for _ in range(3):
-            self.cache.insert(
-                InsertParams(token_ids=frequent_tokens, value=frequent_val)
-            )
+            self.cache.insert(InsertParams(key=frequent_key, value=frequent_val))
 
         # Insert first low-frequency key-value pair that should be evicted
-        first_low_freq_tokens = [5, 6]  # Low hit rate, should be evicted
+        first_low_freq_key = RadixKey(
+            token_ids=[5, 6], extra_key=None
+        )  # Low hit rate, should be evicted
         first_low_freq_val = torch.tensor([50, 60], dtype=torch.int64)
 
         self.cache.insert(
-            InsertParams(token_ids=first_low_freq_tokens, value=first_low_freq_val)
+            InsertParams(key=first_low_freq_key, value=first_low_freq_val)
         )
 
         # Insert other key-values once each (low frequency access) - fill up the cache
+        other_keys = []
         for i in range(4):  # Reduce the number to fit in our smaller cache
+            key = RadixKey(
+                token_ids=[i + 10], extra_key=None
+            )  # Unique keys for low-frequency items
             val = torch.tensor([i + 100], dtype=torch.int64)
-            self.cache.insert(InsertParams(token_ids=[i + 10], value=val))
+            self.cache.insert(InsertParams(key=key, value=val))
+            other_keys.append(key)
 
         # Now insert more items to trigger evictions
         for i in range(6, 10):  # Add more items to definitely exceed capacity
+            key = RadixKey(
+                token_ids=[i * 2], extra_key=None
+            )  # Different pattern to avoid conflicts
             val = torch.tensor([i * 200], dtype=torch.int64)
-            self.cache.insert(InsertParams(token_ids=[i * 2], value=val))
+            self.cache.insert(InsertParams(key=key, value=val))
 
         # Now trigger eviction explicitly to make space
         evict_result = self.cache.evict(
@@ -97,13 +107,18 @@ class TestSLRUAccuracy(unittest.TestCase):
         # Check if the frequently accessed key-value is still present
         # The frequent key should have higher hit count and remain in cache due to SLRU policy
         frequent_match_result = self.cache.match_prefix(
-            MatchPrefixParams(token_ids=frequent_tokens)
+            MatchPrefixParams(
+                token_ids=frequent_key.token_ids, extra_key=frequent_key.extra_key
+            )
         )
 
         # Check if the first low-frequency key-value has been evicted
         # The first low-freq key should have lower hit count and be evicted due to SLRU policy
         first_low_freq_match_result = self.cache.match_prefix(
-            MatchPrefixParams(token_ids=first_low_freq_tokens)
+            MatchPrefixParams(
+                token_ids=first_low_freq_key.token_ids,
+                extra_key=first_low_freq_key.extra_key,
+            )
         )
 
         # Verify the frequent key is still present in cache after evictions

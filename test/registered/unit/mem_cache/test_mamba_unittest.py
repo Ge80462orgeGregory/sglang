@@ -15,6 +15,7 @@ from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.common import available_and_evictable_str
 from sglang.srt.mem_cache.mamba_radix_cache import MambaRadixCache
 from sglang.srt.mem_cache.memory_pool import HybridLinearKVPool, HybridReqToTokenPool
+from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.sampling.sampling_params import SamplingParams
 from sglang.srt.server_args import ServerArgs, set_global_server_args_for_scheduler
 from sglang.srt.utils import get_device
@@ -157,7 +158,7 @@ class TestMamba(unittest.TestCase):
         )
         result = tree.insert(
             InsertParams(
-                token_ids=req1_token_ids,
+                key=RadixKey(req1_token_ids),
                 value=req1_kv_indices,
                 mamba_value=req1.mamba_pool_idx.unsqueeze(0),
             )
@@ -174,7 +175,7 @@ class TestMamba(unittest.TestCase):
         )
         result = tree.insert(
             InsertParams(
-                token_ids=req2_token_ids,
+                key=RadixKey(req2_token_ids),
                 value=req2_kv_indices,
                 mamba_value=req2.mamba_pool_idx.unsqueeze(0),
             )
@@ -192,7 +193,7 @@ class TestMamba(unittest.TestCase):
         )
         result = tree.insert(
             InsertParams(
-                token_ids=req3_token_ids,
+                key=RadixKey(req3_token_ids),
                 value=req3_kv_indices,
                 mamba_value=req3.mamba_pool_idx.unsqueeze(0),
             )
@@ -209,7 +210,7 @@ class TestMamba(unittest.TestCase):
         )
         result = tree.insert(
             InsertParams(
-                token_ids=req4_token_ids,
+                key=RadixKey(req4_token_ids),
                 value=req4_kv_indices,
                 mamba_value=req4.mamba_pool_idx.unsqueeze(0),
             )
@@ -401,7 +402,7 @@ class TestMamba(unittest.TestCase):
         req1 = make_dummy_req()
         tree.insert(
             InsertParams(
-                token_ids=[1, 2, 3],
+                key=RadixKey([1, 2, 3]),
                 value=allocator.alloc(3),
                 mamba_value=req1.mamba_pool_idx.unsqueeze(0),
             )
@@ -413,7 +414,7 @@ class TestMamba(unittest.TestCase):
         req2 = make_dummy_req()
         result = tree.insert(
             InsertParams(
-                token_ids=[1, 2, 3, 4, 5, 6, 7],
+                key=RadixKey([1, 2, 3, 4, 5, 6, 7]),
                 value=allocator.alloc(7),
                 mamba_value=req2.mamba_pool_idx.unsqueeze(0),
                 prev_prefix_len=0,
@@ -430,7 +431,7 @@ class TestMamba(unittest.TestCase):
         req3 = make_dummy_req()
         result = tree.insert(
             InsertParams(
-                token_ids=[1, 2, 3, 4, 5, 6, 7, 8],
+                key=RadixKey([1, 2, 3, 4, 5, 6, 7, 8]),
                 value=allocator.alloc(8),
                 mamba_value=req3.mamba_pool_idx.unsqueeze(0),
                 prev_prefix_len=2,
@@ -446,7 +447,7 @@ class TestMamba(unittest.TestCase):
         req4 = make_dummy_req()
         result = tree.insert(
             InsertParams(
-                token_ids=[1, 2, 3, 4, 5, 6, 7, 8, 9],
+                key=RadixKey([1, 2, 3, 4, 5, 6, 7, 8, 9]),
                 value=allocator.alloc(9),
                 mamba_value=req4.mamba_pool_idx.unsqueeze(0),
                 prev_prefix_len=8,

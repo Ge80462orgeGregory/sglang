@@ -335,7 +335,7 @@ def _insert_seq(env, seq):
     if env.has_mamba:
         req = env.make_req()
         mamba_val = req.mamba_pool_idx.unsqueeze(0)
-    env.tree.insert(InsertParams(token_ids=seq, value=v, mamba_value=mamba_val))
+    env.tree.insert(InsertParams(key=RadixKey(seq), value=v, mamba_value=mamba_val))
     return True
 
 
@@ -356,7 +356,7 @@ def _fill_no_evict(env):
         if env.has_mamba:
             req = env.make_req()
             mamba_val = req.mamba_pool_idx.unsqueeze(0)
-        env.tree.insert(InsertParams(token_ids=seq, value=v, mamba_value=mamba_val))
+        env.tree.insert(InsertParams(key=RadixKey(seq), value=v, mamba_value=mamba_val))
         inserted += 1
     return inserted
 

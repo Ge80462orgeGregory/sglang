@@ -502,19 +502,15 @@ class MambaRadixCache(BasePrefixCache):
         if self.disable:
             return InsertResult(prefix_len=0, mamba_exist=False)
 
-        key = self._make_radix_key(params.token_ids, params.extra_key)
+        key = params.key
         value = params.value
         mamba_value = params.mamba_value
+        prev_prefix_len = params.prev_prefix_len
 
         if value is None:
-            value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
+            value = torch.tensor([x for x in key.token_ids], dtype=torch.int64)
         prefix_len, mamba_exist = self._insert_helper(
-            self.root_node,
-            key,
-            value,
-            mamba_value,
-            params.chunked,
-            params.prev_prefix_len,
+            self.root_node, key, value, mamba_value, params.chunked, prev_prefix_len
         )
         return InsertResult(prefix_len=prefix_len, mamba_exist=mamba_exist)
 
@@ -582,8 +578,7 @@ class MambaRadixCache(BasePrefixCache):
 
             result = self.insert(
                 InsertParams(
-                    token_ids=token_ids[:page_aligned_len],
-                    extra_key=req.extra_key,
+                    key=RadixKey(token_ids[:page_aligned_len], req.extra_key),
                     value=page_aligned_kv_indices,
                     mamba_value=mamba_value,
                     prev_prefix_len=req.cache_protected_len,
@@ -676,8 +671,7 @@ class MambaRadixCache(BasePrefixCache):
             assert mamba_value_forked is not None, "Can not alloc mamba cache"
         result = self.insert(
             InsertParams(
-                token_ids=page_aligned_token_ids,
-                extra_key=req.extra_key,
+                key=RadixKey(page_aligned_token_ids, req.extra_key),
                 value=page_aligned_kv_indices,
                 mamba_value=mamba_value_forked,
                 prev_prefix_len=req.cache_protected_len,

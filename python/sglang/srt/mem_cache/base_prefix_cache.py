@@ -48,8 +48,7 @@ class MatchPrefixParams:
 class InsertParams:
     """Unified parameters for insert across different cache types"""
 
-    token_ids: Optional[list] = None
-    extra_key: Optional[str] = None
+    key: Optional[RadixKey] = None
     value: Optional[torch.Tensor] = None
 
     # Mamba specific
@@ -166,13 +165,6 @@ class BasePrefixCache(ABC, PrefixCacheTrait):
             is_bigram=getattr(self, "is_eagle", False),
         )
         return key.page_aligned(self.page_size)
-
-    def _page_aligned_logical_len(self, token_ids) -> int:
-        """Logical key length after page alignment, no RadixKey allocation."""
-        n = len(token_ids)
-        if getattr(self, "is_eagle", False):
-            n = n - 1 if n > 0 else 0
-        return n // self.page_size * self.page_size
 
     def init_metrics_collector(self):
         from sglang.srt.server_args import get_global_server_args
