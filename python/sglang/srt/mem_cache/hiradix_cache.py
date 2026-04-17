@@ -1205,9 +1205,8 @@ class HiRadixCache(RadixCache):
         return self.prefetch_loaded_tokens_by_reqid.pop(req_id, 0)
 
     def match_prefix(self, params: MatchPrefixParams):
-        key = params.key
         empty_value = torch.empty((0,), dtype=torch.int64, device=self.device)
-        if self.disable or len(key) == 0:
+        if self.disable or len(params.token_ids) == 0:
             return MatchResult(
                 device_indices=empty_value,
                 last_device_node=self.root_node,
@@ -1215,7 +1214,7 @@ class HiRadixCache(RadixCache):
                 host_hit_length=0,
             )
 
-        key = key.page_aligned(self.page_size)
+        key = self._make_radix_key(params.token_ids, params.extra_key)
         page_aligned_len = len(key)
 
         value, last_node = self._match_prefix_helper(self.root_node, key)

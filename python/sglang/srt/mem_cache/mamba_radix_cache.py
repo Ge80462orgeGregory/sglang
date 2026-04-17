@@ -684,7 +684,7 @@ class MambaRadixCache(BasePrefixCache):
 
         # The prefix indices could be updated, reuse it
         match_result = self.match_prefix(
-            MatchPrefixParams(key=RadixKey(page_aligned_token_ids, req.extra_key))
+            MatchPrefixParams(token_ids=page_aligned_token_ids, extra_key=req.extra_key)
         )
         new_indices, new_last_node = (
             match_result.device_indices,
@@ -997,12 +997,9 @@ class MambaRadixCache(BasePrefixCache):
 
     def _match_pre_processor(self, params: MatchPrefixParams) -> Optional[RadixKey]:
         """Preprocess the key before matching."""
-        key = params.key
-
-        if self.disable or len(key) == 0:
+        if self.disable or len(params.token_ids) == 0:
             return None
-
-        return key
+        return self._make_radix_key(params.token_ids, params.extra_key)
 
     def _match_post_processor(
         self,

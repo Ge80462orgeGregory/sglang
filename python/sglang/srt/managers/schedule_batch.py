@@ -991,7 +991,8 @@ class Req(ReqDllmMixin):
                 cow_mamba = tree_cache.supports_mamba()
             match_result = tree_cache.match_prefix(
                 MatchPrefixParams(
-                    key=tree_cache._make_radix_key(token_ids, self.extra_key),
+                    token_ids=token_ids,
+                    extra_key=self.extra_key,
                     req=self,
                     cow_mamba=cow_mamba,
                 )

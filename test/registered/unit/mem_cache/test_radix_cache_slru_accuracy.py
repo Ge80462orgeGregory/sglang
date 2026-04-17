@@ -107,13 +107,18 @@ class TestSLRUAccuracy(unittest.TestCase):
         # Check if the frequently accessed key-value is still present
         # The frequent key should have higher hit count and remain in cache due to SLRU policy
         frequent_match_result = self.cache.match_prefix(
-            MatchPrefixParams(key=frequent_key)
+            MatchPrefixParams(
+                token_ids=frequent_key.token_ids, extra_key=frequent_key.extra_key
+            )
         )
 
         # Check if the first low-frequency key-value has been evicted
         # The first low-freq key should have lower hit count and be evicted due to SLRU policy
         first_low_freq_match_result = self.cache.match_prefix(
-            MatchPrefixParams(key=first_low_freq_key)
+            MatchPrefixParams(
+                token_ids=first_low_freq_key.token_ids,
+                extra_key=first_low_freq_key.extra_key,
+            )
         )
 
         # Verify the frequent key is still present in cache after evictions

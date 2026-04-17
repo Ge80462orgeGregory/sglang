@@ -902,9 +902,7 @@ class HiMambaRadixCache(MambaRadixCache):
         return new_node
 
     def match_prefix(self, params: MatchPrefixParams) -> MatchResult:
-        key = params.key
-
-        if self.disable or len(key) == 0:
+        if self.disable or len(params.token_ids) == 0:
             return MatchResult(
                 device_indices=torch.empty((0,), dtype=torch.int64, device=self.device),
                 last_device_node=self.root_node,
@@ -912,10 +910,7 @@ class HiMambaRadixCache(MambaRadixCache):
                 host_hit_length=0,
             )
 
-        if self.page_size != 1:
-            page_aligned_len = len(key) // self.page_size * self.page_size
-            key = key[:page_aligned_len]
-
+        key = self._make_radix_key(params.token_ids, params.extra_key)
         value, best_last_node, best_value_len = self._match_prefix_helper(key)
         return self._match_post_processor(params, value, best_last_node, best_value_len)
 

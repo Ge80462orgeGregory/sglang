@@ -36,7 +36,8 @@ class PrefixCacheTrait(Protocol):
 class MatchPrefixParams:
     """Unified parameters for match_prefix across different cache types"""
 
-    key: RadixKey
+    token_ids: list
+    extra_key: Optional[str] = None
 
     # Mamba specific
     cow_mamba: bool = False

@@ -133,14 +133,10 @@ class LMCRadixCache(RadixCache):
         into those slots, then materialize a new child node for the retrieved
         chunk.
         """
-        key = params.key
-        if self.disable or not key:
+        if self.disable or not params.token_ids:
             return super().match_prefix(params)
 
-        if self.page_size != 1:
-            aligned_len = len(key) // self.page_size * self.page_size
-            key = key[:aligned_len]
-
+        key = self._make_radix_key(params.token_ids, params.extra_key)
         base_res = super().match_prefix(params)
         value: torch.Tensor = base_res.device_indices
         last_node: TreeNode = base_res.last_device_node
@@ -236,7 +232,7 @@ class LMCRadixCache(RadixCache):
         ]
 
         match_result = self.match_prefix(
-            MatchPrefixParams(key=self._make_radix_key(token_ids, req.extra_key))
+            MatchPrefixParams(token_ids=token_ids, extra_key=req.extra_key)
         )
         new_last_node = match_result.last_device_node
         assert new_last_node is not None

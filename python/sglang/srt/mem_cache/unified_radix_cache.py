@@ -222,8 +222,7 @@ class UnifiedRadixCache(BasePrefixCache):
         }
 
     def match_prefix(self, params: MatchPrefixParams) -> MatchResult:
-        key = params.key
-        if self.disable or len(key) == 0:
+        if self.disable or len(params.token_ids) == 0:
             return MatchResult(
                 device_indices=torch.empty(
                     (0,),
@@ -233,7 +232,7 @@ class UnifiedRadixCache(BasePrefixCache):
                 last_device_node=self.root_node,
                 last_host_node=self.root_node,
             )
-        key = key.page_aligned(self.page_size)
+        key = self._make_radix_key(params.token_ids, params.extra_key)
 
         value, last_node, best_value_len = self._match_prefix_helper(key)
         return self._match_post_processor(params, value, last_node, best_value_len)
@@ -396,7 +395,11 @@ class UnifiedRadixCache(BasePrefixCache):
         result = self.insert(insert_params)
 
         # Match prefix
-        match_result = self.match_prefix(MatchPrefixParams(key=radix_key))
+        match_result = self.match_prefix(
+            MatchPrefixParams(
+                token_ids=token_ids[:effective_cache_len], extra_key=req.extra_key
+            )
+        )
         new_indices = match_result.device_indices
         new_last_node = match_result.last_device_node
         new_prefix_len = result.prefix_len

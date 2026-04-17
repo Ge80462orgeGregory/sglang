@@ -501,15 +501,15 @@ def bench_match_prefix(
             queries.append([rng.randint(1, 32000)] * rng.randint(50, 300))
 
     def verify_fn(q):
-        r1 = env.tree.match_prefix(MatchPrefixParams(key=RadixKey(q)))
-        r2 = env.tree.match_prefix(MatchPrefixParams(key=RadixKey(q)))
+        r1 = env.tree.match_prefix(MatchPrefixParams(token_ids=q))
+        r2 = env.tree.match_prefix(MatchPrefixParams(token_ids=q))
         assert len(r1.device_indices) == len(r2.device_indices), "match not idempotent"
 
     warmup = min(20, len(queries) // 10)
     return bench_api(
         "match_prefix",
         lambda: queries,
-        lambda q: env.tree.match_prefix(MatchPrefixParams(key=RadixKey(q))),
+        lambda q: env.tree.match_prefix(MatchPrefixParams(token_ids=q)),
         min(len(queries) - warmup, num_seqs),
         env.avg_tokens,
         warmup,
@@ -561,7 +561,7 @@ def bench_lock_unlock(
 
     nodes = []
     for seq in env.seqs[: num_seqs // 2]:
-        r = env.tree.match_prefix(MatchPrefixParams(key=RadixKey(seq)))
+        r = env.tree.match_prefix(MatchPrefixParams(token_ids=seq))
         if r.last_device_node != env.tree.root_node:
             nodes.append(r.last_device_node)
     if not nodes:
@@ -608,8 +608,8 @@ def bench_cache_finished(
     # Pre-build Req objects with token IDs filled into req_to_token
     req_items: list = []
     for seq in env.seqs:
+        mr = env.tree.match_prefix(MatchPrefixParams(token_ids=seq))
         key = RadixKey(seq)
-        mr = env.tree.match_prefix(MatchPrefixParams(key=key))
         matched_len = len(mr.device_indices)
         node = mr.last_device_node
         lr = env.tree.inc_lock_ref(node)
