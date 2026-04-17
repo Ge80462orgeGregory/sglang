@@ -11,7 +11,6 @@ from sglang.srt.mem_cache.base_prefix_cache import (
 from sglang.srt.mem_cache.cache_init_params import CacheInitParams
 from sglang.srt.mem_cache.common import available_and_evictable_str
 from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
-from sglang.srt.mem_cache.radix_cache import RadixKey
 from sglang.srt.mem_cache.swa_memory_pool import SWAKVPool, SWATokenToKVPoolAllocator
 from sglang.srt.mem_cache.swa_radix_cache import SWARadixCache
 from sglang.srt.utils import get_device
@@ -216,7 +215,7 @@ class TestSWA(unittest.TestCase):
             f"req1: inserting, req1_token_ids: {req1_token_ids}, req1_kv_indices: {req1_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req1_token_ids), value=req1_kv_indices)
+            InsertParams(token_ids=req1_token_ids, value=req1_kv_indices)
         )
         prefix_len = result.prefix_len
         print(
@@ -228,7 +227,7 @@ class TestSWA(unittest.TestCase):
             f"req2: inserting, req2_token_ids: {req2_token_ids}, req2_kv_indices: {req2_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req2_token_ids), value=req2_kv_indices)
+            InsertParams(token_ids=req2_token_ids, value=req2_kv_indices)
         )
         prefix_len = result.prefix_len
         print(
@@ -240,7 +239,7 @@ class TestSWA(unittest.TestCase):
             f"req3: inserting, req3_token_ids: {req3_token_ids}, req3_kv_indices: {req3_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req3_token_ids), value=req3_kv_indices)
+            InsertParams(token_ids=req3_token_ids, value=req3_kv_indices)
         )
         prefix_len = result.prefix_len
         print(
@@ -252,7 +251,7 @@ class TestSWA(unittest.TestCase):
             f"req4: inserting, req4_token_ids: {req4_token_ids}, req4_kv_indices: {req4_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req4_token_ids), value=req4_kv_indices)
+            InsertParams(token_ids=req4_token_ids, value=req4_kv_indices)
         )
         prefix_len = result.prefix_len
         print(
@@ -375,7 +374,7 @@ class TestSWA(unittest.TestCase):
             f"req1: inserting, req1_token_ids: {req1_token_ids}, req1_kv_indices: {req1_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req1_token_ids), value=req1_kv_indices)
+            InsertParams(token_ids=req1_token_ids, value=req1_kv_indices)
         )
         prefix_len = result.prefix_len
         self.assertEqual(prefix_len, 0)
@@ -388,7 +387,7 @@ class TestSWA(unittest.TestCase):
             f"req2: inserting, req2_token_ids: {req2_token_ids}, req2_kv_indices: {req2_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req2_token_ids), value=req2_kv_indices)
+            InsertParams(token_ids=req2_token_ids, value=req2_kv_indices)
         )
         prefix_len = result.prefix_len
         self.assertEqual(prefix_len, 2)
@@ -401,7 +400,7 @@ class TestSWA(unittest.TestCase):
             f"req3: inserting, req3_token_ids: {req3_token_ids}, req3_kv_indices: {req3_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req3_token_ids), value=req3_kv_indices)
+            InsertParams(token_ids=req3_token_ids, value=req3_kv_indices)
         )
         prefix_len = result.prefix_len
         self.assertEqual(prefix_len, 0)
@@ -414,7 +413,7 @@ class TestSWA(unittest.TestCase):
             f"req4: inserting, req4_token_ids: {req4_token_ids}, req4_kv_indices: {req4_kv_indices}"
         )
         result = tree.insert(
-            InsertParams(key=RadixKey(req4_token_ids), value=req4_kv_indices)
+            InsertParams(token_ids=req4_token_ids, value=req4_kv_indices)
         )
         prefix_len = result.prefix_len
         self.assertEqual(prefix_len, 4)

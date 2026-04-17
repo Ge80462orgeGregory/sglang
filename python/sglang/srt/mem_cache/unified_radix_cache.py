@@ -241,7 +241,7 @@ class UnifiedRadixCache(BasePrefixCache):
         if self.disable:
             return InsertResult(prefix_len=0)
 
-        key = params.key
+        key = self._make_radix_key(params.token_ids, params.extra_key)
         value = params.value
         if value is None:
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
@@ -325,11 +325,11 @@ class UnifiedRadixCache(BasePrefixCache):
                 token_ids = token_ids[:effective_cache_len]
                 kv_indices = kv_indices[:effective_cache_len]
 
-            radix_key = self._make_radix_key(token_ids, req.extra_key)
-            page_aligned_len = len(radix_key)
+            page_aligned_len = self._page_aligned_logical_len(token_ids)
             values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 
-            insert_params.key = radix_key
+            insert_params.token_ids = token_ids
+            insert_params.extra_key = req.extra_key
             insert_params.value = values
             result = self.insert(insert_params)
 
@@ -386,11 +386,12 @@ class UnifiedRadixCache(BasePrefixCache):
 
         kv_indices = kv_indices_orig[:effective_cache_len]
 
-        radix_key = self._make_radix_key(token_ids[:effective_cache_len], req.extra_key)
-        page_aligned_len = len(radix_key)
+        effective_tokens = token_ids[:effective_cache_len]
+        page_aligned_len = self._page_aligned_logical_len(effective_tokens)
         values = kv_indices[:page_aligned_len].to(dtype=torch.int64, copy=True)
 
-        insert_params.key = radix_key
+        insert_params.token_ids = effective_tokens
+        insert_params.extra_key = req.extra_key
         insert_params.value = values
         result = self.insert(insert_params)
 

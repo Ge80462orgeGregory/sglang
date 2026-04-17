@@ -491,16 +491,15 @@ class RadixCache(BasePrefixCache):
         if self.disable:
             return InsertResult(prefix_len=0)
 
-        key = params.key
+        key = self._make_radix_key(params.token_ids, params.extra_key)
         value = params.value
-        priority = params.priority
-        chunked = params.chunked
-
         if value is None:
             # Debug/test fallback: use token ids themselves as values.
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
-        prefix_len = self._insert_helper(self.root_node, key, value, priority, chunked)
+        prefix_len = self._insert_helper(
+            self.root_node, key, value, params.priority, params.chunked
+        )
         return InsertResult(prefix_len=prefix_len)
 
     def cache_finished_req(self, req: Req, is_insert: bool = True):
@@ -522,15 +521,19 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
-        key_len = len(radix_key)
+        key_len = self._page_aligned_logical_len(token_ids)
         values = kv_indices[:key_len].to(dtype=torch.int64, copy=True)
 
         # Radix Cache takes one ref in memory pool
         if is_insert:
             priority = getattr(req, "priority", 0) or 0
             result = self.insert(
-                InsertParams(key=radix_key, value=values, priority=priority)
+                InsertParams(
+                    token_ids=token_ids,
+                    extra_key=req.extra_key,
+                    value=values,
+                    priority=priority,
+                )
             )
             new_prefix_len = result.prefix_len
             # Free the duplicates that were already in the tree
@@ -558,13 +561,14 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self._make_radix_key(token_ids, req.extra_key)
-        values = kv_indices[: len(radix_key)].to(dtype=torch.int64, copy=True)
+        key_len = self._page_aligned_logical_len(token_ids)
+        values = kv_indices[:key_len].to(dtype=torch.int64, copy=True)
 
         # Radix Cache takes one ref in memory pool
         result = self.insert(
             InsertParams(
-                key=radix_key,
+                token_ids=token_ids,
+                extra_key=req.extra_key,
                 value=values,
                 chunked=chunked,
                 priority=getattr(req, "priority", 0) or 0,
@@ -584,9 +588,7 @@ class RadixCache(BasePrefixCache):
             match_result.device_indices,
             match_result.last_device_node,
         )
-        assert len(new_indices) == len(
-            radix_key
-        ), f"{len(new_indices)=}, {len(radix_key)=}"
+        assert len(new_indices) == key_len, f"{len(new_indices)=}, {key_len=}"
 
         self.req_to_token_pool.write(
             (req.req_pool_idx, slice(req.cache_protected_len, len(new_indices))),
@@ -960,15 +962,11 @@ if __name__ == "__main__":
     tree = RadixCache.create_simulated()
 
     # Example token id sequences (as lists of ints)
-    tree.insert(InsertParams(key=RadixKey(token_ids=[1, 2, 3], extra_key=None)))
-    tree.insert(InsertParams(key=RadixKey(token_ids=[1, 2, 3], extra_key=None)))
-    tree.insert(InsertParams(key=RadixKey(token_ids=[1, 2, 4, 5], extra_key=None)))
-    tree.insert(
-        InsertParams(key=RadixKey(token_ids=[1, 2, 4, 5, 6, 7], extra_key=None))
-    )
-    tree.insert(
-        InsertParams(key=RadixKey(token_ids=[8, 9, 10, 11, 12], extra_key=None))
-    )
+    tree.insert(InsertParams(token_ids=[1, 2, 3]))
+    tree.insert(InsertParams(token_ids=[1, 2, 3]))
+    tree.insert(InsertParams(token_ids=[1, 2, 4, 5]))
+    tree.insert(InsertParams(token_ids=[1, 2, 4, 5, 6, 7]))
+    tree.insert(InsertParams(token_ids=[8, 9, 10, 11, 12]))
     tree.pretty_print()
 
     print(tree.match_prefix(MatchPrefixParams(token_ids=[1, 2, 3, 13, 14])))

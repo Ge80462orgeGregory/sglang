@@ -259,7 +259,7 @@ class UnifiedRadixCacheSuite:
     def _insert(self, tree, allocator, req_to_token_pool, tokens):
         """Insert tokens, attaching mamba data when the config has mamba."""
         params = InsertParams(
-            key=RadixKey(tokens),
+            token_ids=tokens,
             value=self._alloc(allocator, len(tokens)),
         )
         if self.cfg.has_mamba:
@@ -401,7 +401,7 @@ class UnifiedRadixCacheSuite:
 
         # Step 2: insert 2 pages with prev_prefix_len=0 → frees overlap of 1 page
         params = InsertParams(
-            key=RadixKey(seq_2p),
+            token_ids=seq_2p,
             value=self._alloc(allocator, len(seq_2p)),
             prev_prefix_len=0,
         )
@@ -418,7 +418,7 @@ class UnifiedRadixCacheSuite:
         # Step 3: insert 3 pages with prev_prefix_len=len(seq_2p) → nothing freed
         avail_before = allocator.available_size()
         params = InsertParams(
-            key=RadixKey(seq_3p),
+            token_ids=seq_3p,
             value=self._alloc(allocator, len(seq_3p)),
             prev_prefix_len=len(seq_2p),
         )
