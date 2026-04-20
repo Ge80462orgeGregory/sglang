@@ -3458,18 +3458,55 @@ class ServerArgs:
                 )
 
         if self.speculative_adaptive:
+            unsupported_reason = None
             if self.speculative_algorithm not in ("EAGLE", "EAGLE3"):
-                logger.warning(
-                    "speculative_adaptive is only supported with EAGLE/EAGLE3 and topk=1. "
-                    f"Current algorithm={self.speculative_algorithm}. "
-                    "Falling back to static params."
+                unsupported_reason = (
+                    f"speculative_algorithm={self.speculative_algorithm} "
+                    "(only EAGLE/EAGLE3 are supported)"
                 )
-                self.speculative_adaptive = False
             elif self.speculative_eagle_topk != 1:
+                unsupported_reason = (
+                    f"speculative_eagle_topk={self.speculative_eagle_topk} "
+                    "(only topk=1 is supported)"
+                )
+            elif self.enable_dp_attention:
+                # Per-rank local accept_lengths diverge across DP ranks, producing
+                # different EMA decisions and mismatched CUDA graph shapes.
+                unsupported_reason = (
+                    "enable_dp_attention=True is not supported "
+                    "(adaptive tier decisions are not synchronized across DP ranks)"
+                )
+            elif not self.disable_overlap_schedule:
+                # Worker factory selects EAGLEWorkerV2 when overlap is on, and
+                # AdaptiveController is only wired into EAGLEWorker v1.
+                unsupported_reason = (
+                    "the overlap scheduler (spec v2) is enabled "
+                    "(adaptive is only implemented for EAGLEWorker v1)"
+                )
+            elif self.enable_multi_layer_eagle:
+                unsupported_reason = (
+                    "enable_multi_layer_eagle=True is not supported "
+                    "(MultiLayerEagleWorker does not implement adaptive)"
+                )
+            elif self.enable_two_batch_overlap:
+                # TboAttnBackend wraps the target attn_backend; adaptive state
+                # swap would replace it with a raw backend and break TBO.
+                unsupported_reason = (
+                    "enable_two_batch_overlap=True is not supported "
+                    "(adaptive state swap would discard the TboAttnBackend wrapper)"
+                )
+            elif self.enable_pdmux:
+                # pdmux maintains decode_attn_backend_group alongside attn_backend;
+                # adaptive only swaps attn_backend, leaving the group stale.
+                unsupported_reason = (
+                    "enable_pdmux=True is not supported "
+                    "(adaptive state swap does not update decode_attn_backend_group)"
+                )
+
+            if unsupported_reason is not None:
                 logger.warning(
-                    "speculative_adaptive is only supported with topk=1. "
-                    f"Current topk={self.speculative_eagle_topk}. "
-                    "Falling back to static params."
+                    f"speculative_adaptive disabled: {unsupported_reason}. "
+                    "Falling back to static speculative params."
                 )
                 self.speculative_adaptive = False
 
