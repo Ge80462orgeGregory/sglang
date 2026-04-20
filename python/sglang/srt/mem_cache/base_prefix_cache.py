@@ -156,14 +156,10 @@ class BasePrefixCache(ABC, PrefixCacheTrait):
 
     def make_radix_key(self, token_ids, extra_key: Optional[str] = None) -> "RadixKey":
         """Build a page-aligned RadixKey configured for this cache's mode."""
-        from sglang.srt.mem_cache.radix_cache import RadixKey
+        from sglang.srt.mem_cache.radix_cache import BigramKey, PlainKey
 
-        key = RadixKey(
-            token_ids,
-            extra_key,
-            is_bigram=getattr(self, "is_eagle", False),
-        )
-        return key.page_aligned(self.page_size)
+        cls = BigramKey if getattr(self, "is_eagle", False) else PlainKey
+        return cls(token_ids, extra_key).page_aligned(self.page_size)
 
     def init_metrics_collector(self):
         from sglang.srt.server_args import get_global_server_args
