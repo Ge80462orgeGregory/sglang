@@ -129,7 +129,8 @@ class TestRadixKey(unittest.TestCase):
         """Test __repr__ method."""
         key = RadixKey([1, 2, 3], "test")
         repr_str = repr(key)
-        self.assertIn("RadixKey", repr_str)
+        # RadixKey(...) dispatches to PlainKey / BigramKey; repr uses the concrete class name.
+        self.assertIn("PlainKey", repr_str)
         self.assertIn("extra_key='test'", repr_str)
         self.assertIn("[1, 2, 3]", repr_str)
 
