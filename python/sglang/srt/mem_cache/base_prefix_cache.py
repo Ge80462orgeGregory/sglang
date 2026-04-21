@@ -154,13 +154,6 @@ class BasePrefixCache(ABC, PrefixCacheTrait):
         None  # metrics collector for the cache
     )
 
-    def make_radix_key(self, token_ids, extra_key: Optional[str] = None) -> "RadixKey":
-        """Build a page-aligned RadixKey configured for this cache's mode."""
-        from sglang.srt.mem_cache.radix_cache import BigramKey, PlainKey
-
-        cls = BigramKey if getattr(self, "is_eagle", False) else PlainKey
-        return cls(token_ids, extra_key).page_aligned(self.page_size)
-
     def init_metrics_collector(self):
         from sglang.srt.server_args import get_global_server_args
 
@@ -268,6 +261,24 @@ class BasePrefixCache(ABC, PrefixCacheTrait):
 
     def supports_mamba(self) -> bool:
         return False
+
+    def supports_streaming_session(self) -> bool:
+        return False
+
+    def release_session(self, session_id: str) -> None:
+        pass
+
+    def session_held_tokens(self, active_pool_idxs: Optional[set] = None) -> int:
+        return 0
+
+    def session_held_full_tokens(self, active_pool_idxs: Optional[set] = None) -> int:
+        return 0
+
+    def session_held_swa_tokens(self, active_pool_idxs: Optional[set] = None) -> int:
+        return 0
+
+    def session_held_req_count(self, active_pool_idxs: Optional[set] = None) -> int:
+        return 0
 
     def is_chunk_cache(self) -> bool:
         return False

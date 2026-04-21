@@ -43,7 +43,7 @@ from sglang.srt.mem_cache.base_prefix_cache import (
     InsertParams,
     MatchPrefixParams,
 )
-from sglang.srt.mem_cache.radix_cache import RadixCache, TreeNode
+from sglang.srt.mem_cache.radix_cache import RadixCache, RadixKey, TreeNode
 from sglang.srt.mem_cache.swa_memory_pool import SWATokenToKVPoolAllocator
 from sglang.srt.server_args import ServerArgs
 
@@ -196,9 +196,10 @@ class SchedulePolicy:
             prefix_ids = r.origin_input_ids + r.output_ids
             extra_key = r.extra_key
             # NOTE: the prefix_indices must always be aligned with last_node
-            radix_key = self.tree_cache.make_radix_key(prefix_ids, extra_key)
             match_result = self.tree_cache.match_prefix(
-                MatchPrefixParams(key=radix_key)
+                MatchPrefixParams(
+                    key=RadixKey(token_ids=prefix_ids, extra_key=extra_key)
+                )
             )
             (
                 r.prefix_indices,
@@ -220,11 +221,10 @@ class SchedulePolicy:
             # threshold means we cannot use in-batch prefix caching for short prefixes.
             # It is kind of common when the engine is long running (e.g., imagine the prefix "the").
             if len(r.prefix_indices) <= IN_BATCH_PREFIX_CACHING_CHECK_THRESHOLD:
-                waiting_key = self.waiting_queue_radix_tree.make_radix_key(
-                    prefix_ids, extra_key
-                )
                 match_result = self.waiting_queue_radix_tree.match_prefix(
-                    MatchPrefixParams(key=waiting_key)
+                    MatchPrefixParams(
+                        key=RadixKey(token_ids=prefix_ids, extra_key=extra_key)
+                    )
                 )
                 in_batch_matching_prefixes = match_result.device_indices
                 if (
@@ -236,7 +236,7 @@ class SchedulePolicy:
                     # Insert with a dummy key
                     self.waiting_queue_radix_tree.insert(
                         InsertParams(
-                            key=waiting_key,
+                            key=RadixKey(token_ids=prefix_ids, extra_key=extra_key),
                             value=torch.empty(len(prefix_ids), dtype=torch.bool),
                         )
                     )
@@ -631,10 +631,16 @@ class PrefillAdder:
         else:
             _rem_tokens = min(self.rem_chunk_tokens, int(self.rem_total_tokens))
             if self.is_hybrid_swa:
-                _rem_tokens = min(_rem_tokens, int(self.rem_swa_tokens))
+                # alloc_extend needs extend_num_tokens + page_size per request,
+                # so reserve one page here to avoid OOM
+                _rem_tokens = min(
+                    _rem_tokens, int(self.rem_swa_tokens) - self.page_size
+                )
             # The chunked_req must be added to the list; otherwise, it will cause a memory leak.
             # Therefore, in certain cases where _rem_tokens <= 0, it should be replaced with rem_chunk_tokens.
             if _rem_tokens <= 0:
+                if self.is_hybrid_swa:
+                    return req
                 _rem_tokens = self.rem_chunk_tokens
 
         truncated = req.extend_input_len > _rem_tokens

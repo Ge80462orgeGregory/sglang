@@ -28,17 +28,17 @@ import sys
 import time
 from collections import defaultdict
 from functools import lru_cache
-from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Iterator, List, Optional, Tuple, Union
 
 import torch
 
 logger = logging.getLogger(__name__)
 
 from sglang.srt.disaggregation.kv_events import (
-    MEDIUM_GPU,
     AllBlocksCleared,
     BlockRemoved,
     BlockStored,
+    StorageMedium,
 )
 from sglang.srt.mem_cache.base_prefix_cache import (
     BasePrefixCache,
@@ -108,7 +108,7 @@ class RadixKey:
     def _check_compatible(self, other: "RadixKey") -> None:
         if self.extra_key != other.extra_key:
             raise ValueError(
-                f"match should be run on the same extra key, but got "
+                f"RadixKey operations require matching extra_key, but got "
                 f"{self.extra_key=} != {other.extra_key=}"
             )
 
@@ -117,6 +117,21 @@ class RadixKey:
             return self
         aligned_len = len(self) // page_size * page_size
         return self[:aligned_len]
+
+    def maybe_to_bigram_view(
+        self,
+        is_eagle: bool,
+        value: Optional[torch.Tensor] = None,
+    ) -> Tuple["RadixKey", Optional[torch.Tensor]]:
+        """If ``is_eagle`` and ``self`` is a ``PlainKey``, return an equivalent
+        ``BigramKey`` (O(1) wrap over the same ``token_ids``) and a value
+        truncated to the bigram count. Idempotent on a ``BigramKey``."""
+        if is_eagle and not self.is_bigram:
+            new_key = BigramKey(self.token_ids, self.extra_key)
+            if value is not None:
+                value = value[: len(new_key)]
+            return new_key, value
+        return self, value
 
     # --- abstract ---
     def __len__(self) -> int:
@@ -321,6 +336,7 @@ class TreeNode:
 def compute_node_hash_values(node: "TreeNode", page_size: int) -> List[str]:
     """Compute SHA256-based hash values for position-aware identification."""
     hash_values = []
+
     parent_hash = None
     if node.parent is not None and node.parent.hash_value is not None:
         if len(node.parent.key) > 0 and len(node.parent.hash_value) > 0:
@@ -479,6 +495,7 @@ class RadixCache(BasePrefixCache):
                 subsequent match efficiency and does not duplicate data.
         """
         key = params.key
+        key, _ = key.maybe_to_bigram_view(self.is_eagle)
 
         def empty_match_result():
             return MatchResult(
@@ -494,9 +511,7 @@ class RadixCache(BasePrefixCache):
         if self.disable or len(key) == 0:
             return empty_match_result()
 
-        if self.page_size != 1:
-            page_aligned_len = len(key) // self.page_size * self.page_size
-            key = key[:page_aligned_len]
+        key = key.page_aligned(self.page_size)
 
         if len(key) == 0:
             return empty_match_result()
@@ -521,7 +536,11 @@ class RadixCache(BasePrefixCache):
         priority = params.priority
         chunked = params.chunked
 
-        if value is None:
+        key, value = key.maybe_to_bigram_view(self.is_eagle, value)
+        key = key.page_aligned(self.page_size)
+        if value is not None:
+            value = value[: len(key)]
+        else:
             # Debug/test fallback: use token ids themselves as values.
             value = torch.tensor(key.token_ids[: len(key)], dtype=torch.int64)
 
@@ -547,7 +566,9 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self.make_radix_key(token_ids, req.extra_key)
+        radix_key = RadixKey(
+            token_ids, req.extra_key, is_bigram=self.is_eagle
+        ).page_aligned(self.page_size)
         key_len = len(radix_key)
         values = kv_indices[:key_len].to(dtype=torch.int64, copy=True)
 
@@ -583,7 +604,9 @@ class RadixCache(BasePrefixCache):
             req.req_pool_idx, : len(token_ids)
         ]
 
-        radix_key = self.make_radix_key(token_ids, req.extra_key)
+        radix_key = RadixKey(
+            token_ids, req.extra_key, is_bigram=self.is_eagle
+        ).page_aligned(self.page_size)
         values = kv_indices[: len(radix_key)].to(dtype=torch.int64, copy=True)
 
         # Radix Cache takes one ref in memory pool
@@ -894,9 +917,14 @@ class RadixCache(BasePrefixCache):
                 stack.append(child)
         return total_size
 
-    def _record_store_event(self, node: TreeNode):
+    def _record_store_event(self, node: TreeNode, medium=None):
         # One BlockStored per ``page_size`` chunk.
+        # ``medium`` defaults to StorageMedium.GPU but callers may override
+        # for lower-tier insertions (e.g. StorageMedium.CPU for host/L2 cache).
         if self.enable_kv_cache_events:
+            if medium is None:
+                medium = StorageMedium.GPU
+
             # Compute hash_value lazily if not already set
             if node.hash_value is None:
                 node.hash_value = compute_node_hash_values(node, self.page_size)
@@ -933,16 +961,21 @@ class RadixCache(BasePrefixCache):
                         token_ids=page_tokens,
                         block_size=len(page_tokens),
                         lora_id=None,
-                        medium=MEDIUM_GPU,
+                        medium=medium,
                     )
                 )
 
                 parent_block_hash = block_hash
                 page_index += 1
 
-    def _record_remove_event(self, node: TreeNode):
+    def _record_remove_event(self, node: TreeNode, medium=None):
         # One BlockRemoved per chunk.
+        # ``medium`` defaults to StorageMedium.GPU but callers may override for
+        # lower-tier removals (e.g. StorageMedium.CPU when evicting from host).
         if self.enable_kv_cache_events:
+            if medium is None:
+                medium = StorageMedium.GPU
+
             # Compute hash_value lazily if not already set (must match what was stored)
             if node.hash_value is None:
                 node.hash_value = compute_node_hash_values(node, self.page_size)
@@ -957,7 +990,7 @@ class RadixCache(BasePrefixCache):
                 block_hash = hash_str_to_int64(node.hash_value[page_index])
 
                 self.kv_event_queue.append(
-                    BlockRemoved(block_hashes=[block_hash], medium=MEDIUM_GPU)
+                    BlockRemoved(block_hashes=[block_hash], medium=medium)
                 )
 
                 page_index += 1
