@@ -184,13 +184,7 @@ class PlainKey(RadixKey):
     def match(self, other: "RadixKey", page_size: int = 1) -> int:
         self._check_compatible(other)
         t0, t1 = self.token_ids, other.token_ids
-        if page_size == 1:
-            i = 0
-            for a, b in zip(t0, t1):
-                if a != b:
-                    break
-                i += 1
-            return i
+        # page_size=1 collapses to element-wise comparison under the same loop.
         min_len = min(len(self), len(other))
         i = 0
         while i < min_len:
@@ -249,7 +243,8 @@ class BigramKey(RadixKey):
                 break
             i += 1
         matched = max(0, min(i - 1, len(self), len(other)))
-        return (matched // page_size) * page_size if page_size > 1 else matched
+        # // page_size * page_size is a no-op for page_size=1.
+        return (matched // page_size) * page_size
 
     def child_key(self, page_size: int = 1):
         t = self.token_ids
